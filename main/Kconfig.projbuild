@@ -1,0 +1,15 @@
+menu "WiFi Configuration"
+    config WIFI_SSID
+        string "Primary WiFi SSID"
+        default "TP-LINK"
+    config WIFI_PASS
+        string "Primary WiFi Password"
+        default "0000001995"
+
+    config WIFI_RESERVE_SSID
+        string "Reserve WiFi SSID"
+        default "RESERVE-NET"
+    config WIFI_RESERVE_PASS
+        string "Reserve WiFi Password"
+        default "12345678"
+endmenu

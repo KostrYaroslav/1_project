@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ESP32 Панель Управления</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f0f2f5; color: #333; padding: 20px; }
+        h1 { color: #1a73e8; margin-bottom: 30px; }
+        .card { background: white; padding: 20px; margin: 15px auto; border-radius: 12px; 
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; text-align: left; }
+        .info-row { display: flex; justify-content: space-between; margin: 8px 0; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .info-row b { color: #555; }
+        input[type='number'] { width: 120px; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; text-align: center; }
+        button { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 14px; }
+        .btn-ok { background: #1a73e8; color: white; }
+        .btn-ota { background: #d93025; color: white; width: 100%; margin-top: 10px; }
+        .btn-restart { background: #f4b400; color: white; width: 100%; margin-top: 20px; }
+        #s { color: #d93025; font-weight: bold; margin-top: 10px; text-align: center; display: block; }
+        .status-header { text-align: center; font-size: 1.2em; margin-bottom: 10px; display: block; font-weight: bold; color: #1a73e8; }
+        /* Прячем стандартные стрелки браузера, так как мы сделали свои умные */
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
+</head>
+<body>
+
+    <h1>Панель управления ESP32</h1>
+
+    <div class="card">
+        <span class="status-header">Статус системы</span>
+        <div class="info-row"><b>Память:</b> <span><span id="mem">--</span> / 520 КБ</span></div>
+        <div class="info-row"><b>Занято:</b> <span id="percent">--</span>%</div>
+        <div class="info-row"><b>Аптайм:</b> <span id="up">--</span> сек.</div>
+    </div>
+
+    <div class="card">
+        <p style="text-align: center;">Режим: <b id="cur_del" style="color:#1a73e8;">--</b></p>
+        <form onsubmit="setDelay(); return false;" 
+              style="display: flex; gap: 10px; align-items: center; justify-content: center;">
+            <!-- Поле с обработкой клавиатуры -->
+            <input type="number" id="new_del" min="0" 
+                   oninput="setDelayDebounced()" 
+                   onkeydown="handleArrows(event)"
+                   placeholder="Задержка..."> 
+            <button type="submit" class="btn-ok">Ок</button>
+        </form>
+        <p style="font-size: 0.8em; color: #888; text-align: center; margin-top: 10px;">
+            Подсказка: Стрелки на клавиатуре меняют шаг на 10
+        </p>
+    </div>
+
+    <div class="card" style="text-align: center;">
+        <h3>Обновление и Сервис</h3>
+        <input type="file" id="f" accept=".bin">
+        <button id="b" class="btn-ota" onclick="u()">Прошить по воздуху</button>
+        <span id="s"></span>
+        <button class="btn-restart" onclick="rs()">Перезагрузить устройство</button>
+    </div>
+
+    <script>
+        let debounceTimer;
+        let isInitialized = false;
+
+        // 1. Умная обработка стрелок (округление до 10)
+        function handleArrows(e) {
+            let input = document.getElementById('new_del');
+            let val = parseInt(input.value) || 0;
+
+            if (e.keyCode === 38 || e.keyCode === 40) { // 38 - Up, 40 - Down
+                e.preventDefault(); 
+
+                if (e.keyCode === 38) {
+                    // Из 231 сделает 240, из 239 сделает 240
+                    val = Math.floor((val + 10) / 10) * 10;
+                } else {
+                    // Из 231 сделает 230, из 239 сделает 230
+                    val = Math.ceil((val - 10) / 10) * 10;
+                }
+
+                if (val < 0) val = 0;
+                input.value = val;
+                setDelayDebounced();
+            }
+        }
+
+        // 2. Получение данных
+        function getStatus() {
+            fetch('/status').then(r => r.json()).then(d => {
+                document.getElementById('mem').innerText = d.mem;
+                document.getElementById('percent').innerText = Math.round(100 - ((d.mem * 100) / 520));
+                document.getElementById('up').innerText = d.up;
+                document.getElementById('cur_del').innerText = d.del < 10 ? "Постоянное свечение" : d.del + " мс";
+
+                if (!isInitialized) {
+                    document.getElementById('new_del').value = d.del;
+                    isInitialized = true;
+                }
+            }).catch(e => console.log("Offline"));
+        }
+
+        setInterval(getStatus, 2000);
+        getStatus();
+
+        // 3. Отправка данных
+        function setDelayDebounced() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(setDelay, 300);
+        }
+
+        function setDelay() {
+            let v = document.getElementById('new_del').value;
+            if (v === "") return;
+            document.getElementById('cur_del').innerText = v < 10 ? "Постоянное свечение" : v + " мс";
+            fetch('/set?val=' + v);
+        }
+
+        function rs() {
+            if(confirm('Перезагрузить ESP32?')) {
+                fetch('/restart').then(() => {
+                    alert('Перезагрузка...');
+                    setTimeout(() => location.reload(), 8000);
+                });
+            }
+        }
+
+        function u() {
+            var fi = document.getElementById('f').files;
+            if(fi.length === 0) return alert('Выберите файл!');
+            var x = new XMLHttpRequest();
+            var b = document.getElementById('b');
+            var msg = document.getElementById('s');
+            x.open('POST', '/update', true);
+            x.setRequestHeader('Content-Type', 'application/octet-stream');
+            b.disabled = true;
+            msg.innerHTML = 'Загрузка...';
+            x.upload.onprogress = (e) => { msg.innerHTML = 'Загрузка: ' + Math.round((e.loaded/e.total)*100) + '%'; };
+            x.onload = () => { alert(x.responseText); location.reload(); };
+            x.send(fi[0]);
+        }
+    </script>
+</body>
+</html>
