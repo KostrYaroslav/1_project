@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>ESP32 Dashboard</title>
+    <title>ESP32 Ultimate Control</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         :root { 
@@ -11,40 +11,48 @@
         }
         body { margin: 0; font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: #202124; display: flex; flex-direction: column; align-items: center; }
         
-        .chrome-menu-btn { position: fixed; top: 15px; right: 15px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; z-index: 1001; }
-        .dots { width: 4px; height: 4px; background: #5f6368; border-radius: 50%; box-shadow: 0 6px 0 #5f6368, 0 -6px 0 #5f6368; }
+        /* КНОПКА МЕНЮ (ТРИ ТОЧКИ) */
+        .chrome-menu-btn { position: fixed; top: 15px; right: 15px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; z-index: 1001; transition: 0.3s; }
+        .chrome-menu-btn:hover { background: rgba(0,0,0,0.05); }
+        .dots { width: 4px; height: 4px; background: #5f6368; border-radius: 50%; box-shadow: 0 8px 0 #5f6368, 0 -8px 0 #5f6368; }
 
-        h1 { font-size: 22px; font-weight: 400; margin: 60px 0 20px; }
+        h1 { font-size: 22px; font-weight: 400; margin: 60px 0 20px; text-transform: uppercase; letter-spacing: 1px; }
+        
+        /* КАРТОЧКИ */
         .card { background: var(--card-bg); border-radius: 12px; padding: 20px; margin-bottom: 16px; width: 90%; max-width: 400px; border: 1px solid #dadce0; box-sizing: border-box; }
         .status-header { display: block; font-size: 14px; font-weight: 500; color: #5f6368; margin-bottom: 15px; text-transform: uppercase; }
-
         .info-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px dotted #dadce0; }
-        .sig-badge { padding: 4px 10px; border-radius: 4px; color: white; font-size: 12px; font-weight: bold; }
-        .mem-bar { width: 80px; height: 6px; background: #e8eaed; border-radius: 3px; overflow: hidden; display: inline-block; }
+        .sig-badge { padding: 4px 10px; border-radius: 4px; color: white; font-size: 12px; font-weight: bold; min-width: 60px; text-align: center; }
+        .mem-bar { width: 80px; height: 6px; background: #e8eaed; border-radius: 3px; overflow: hidden; display: inline-block; margin-left: 10px; }
         .mem-fill { height: 100%; background: var(--p); transition: 0.5s; width: 0%; }
 
-        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); z-index: 998; }
-        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; width: 95%; max-width: 380px; border-radius: 8px; z-index: 999; box-shadow: 0 8px 24px rgba(0,0,0,0.2); flex-direction: column; overflow: hidden; }
+        /* МОДАЛЬНОЕ ОКНО */
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); z-index: 998; backdrop-filter: blur(2px); }
+        .modal { 
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            background: white; width: 95%; max-width: 380px; border-radius: 8px; z-index: 999; 
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2); flex-direction: column; overflow: hidden;
+        }
         .modal.show, .overlay.show { display: flex; }
         .menu-header { padding: 16px; display: flex; align-items: center; border-bottom: 1px solid #dadce0; font-size: 18px; }
-        .back-btn { cursor: pointer; margin-right: 15px; color: #5f6368; }
-
-        .menu-item { padding: 16px 20px; cursor: pointer; border-bottom: 1px solid #f1f3f4; color: black; text-decoration: none; }
+        .back-btn { cursor: pointer; margin-right: 15px; color: #5f6368; font-weight: bold; }
+        .menu-item { padding: 16px 20px; cursor: pointer; border-bottom: 1px solid #f1f3f4; color: black; transition: 0.2s; }
+        .menu-item:hover { background: #f8f9fa; }
         .sub-content, .menu-page { display: none; flex-direction: column; }
         .active { display: flex !important; }
 
+        /* ИНПУТЫ */
         .edit-box { padding: 15px 20px; }
-        input { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #dadce0; border-radius: 4px; box-sizing: border-box; font-size: 15px; }
-        
-        button { padding: 10px 24px; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #dadce0; border-radius: 4px; box-sizing: border-box; font-size: 15px; outline: none; }
+        button { padding: 10px 24px; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; transition: 0.2s; }
         .btn-p { background: var(--p); color: white; }
+        .priority-label { display: flex; align-items: center; gap: 10px; margin: 12px 0; font-size: 14px; cursor: pointer; color: #3c4043; padding: 10px; border-radius: 6px; background: #f1f3f4; }
+        .priority-label input { width: auto; margin: 0; accent-color: var(--p); }
 
-        .priority-label { display: flex; align-items: center; gap: 10px; margin: 12px 0; font-size: 14px; cursor: pointer; color: #3c4043; }
-        .priority-label input { width: auto; margin: 0; }
-
-        .file-select-label { border: 2px dashed #dadce0; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; margin-bottom: 15px; display: block; }
-        .prog-bg { height: 4px; background: #e8eaed; border-radius: 2px; margin: 10px 0; display: none; }
-        .prog-fill { height: 100%; background: var(--d); width: 0%; }
+        /* OTA */
+        .file-select-label { border: 2px dashed #dadce0; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; margin-bottom: 15px; display: block; background: #fafafa; }
+        .prog-bg { height: 6px; background: #e8eaed; border-radius: 3px; margin: 10px 0; display: none; overflow: hidden; }
+        .prog-fill { height: 100%; background: var(--d); width: 0%; transition: 0.3s; }
     </style>
 </head>
 <body>
@@ -61,20 +69,20 @@
         <div id="root-menu" class="menu-page active">
             <div class="menu-item" onclick="navigate('wifi-menu', 'Связь')">Настройки Wi-Fi ➔</div>
             <div class="menu-item" onclick="navigate('page-service', 'Система')">Сервис и Обновление ➔</div>
-            <div style="padding:16px; text-align:right;"><button onclick="closeModal()" style="color:var(--p); background:none;">ЗАКРЫТЬ</button></div>
+            <div style="padding:16px; text-align:right;"><button onclick="closeModal()" style="color:var(--p); background:none; font-weight:bold;">ЗАКРЫТЬ</button></div>
         </div>
 
         <div id="wifi-menu" class="menu-page">
-            <div class="menu-item" onclick="navigate('sub-mdns', 'Имя устройства')">Имя mDNS</div>
-            <div class="menu-item" onclick="navigate('sub-main', 'Основная сеть')">Основной Wi-Fi</div>
-            <div class="menu-item" onclick="navigate('sub-res', 'Резервная сеть')">Резервный Wi-Fi</div>
+            <div class="menu-item" onclick="navigate('sub-mdns', 'Имя устройства')">Имя mDNS ➔</div>
+            <div class="menu-item" onclick="navigate('sub-main', 'Основная сеть')">Основной Wi-Fi ➔</div>
+            <div class="menu-item" onclick="navigate('sub-res', 'Резервная сеть')">Резервный Wi-Fi ➔</div>
         </div>
 
         <div id="sub-main" class="sub-content">
             <div class="edit-box">
-                <b>SSID (Имя сети):</b><input type="text" id="m_ssid_in">
+                <b>SSID:</b><input type="text" id="m_ssid_in">
                 <b>ПАРОЛЬ:</b><input type="text" id="m_pass_in">
-                <label class="priority-label"><input type="radio" name="act" id="act_main"> Сделать эту сеть основной</label>
+                <label class="priority-label"><input type="radio" name="act" id="act_main"> Сделать приоритетной</label>
                 <button class="btn-p" style="width:100%; margin-top:10px" onclick="saveWifi('main')">СОХРАНИТЬ</button>
             </div>
         </div>
@@ -83,58 +91,61 @@
             <div class="edit-box">
                 <b>SSID (Резерв):</b><input type="text" id="r_ssid_in">
                 <b>ПАРОЛЬ:</b><input type="text" id="r_pass_in">
-                <label class="priority-label"><input type="radio" name="act" id="act_res"> Использовать как резерв</label>
+                <label class="priority-label"><input type="radio" name="act" id="act_res"> Использовать сейчас</label>
                 <button class="btn-p" style="width:100%; margin-top:10px; background:var(--w)" onclick="saveWifi('res')">СОХРАНИТЬ</button>
             </div>
         </div>
 
         <div id="sub-mdns" class="sub-content">
             <div class="edit-box">
-                <b>ЛОКАЛЬНЫЙ ХОСТ (.local):</b><input type="text" id="host_in">
-                <button class="btn-p" style="width:100%" onclick="setHost()">ОБНОВИТЬ</button>
+                <b>ЛОКАЛЬНЫЙ ХОСТ:</b><input type="text" id="host_in">
+                <button class="btn-p" style="width:100%" onclick="setHost()">ПРИМЕНИТЬ</button>
             </div>
         </div>
 
         <div id="page-service" class="sub-content">
             <div class="edit-box">
                 <label for="f" class="file-select-label">
-                    <span id="f_name" style="font-size: 13px; color: #5f6368;">📁 Выбрать файл прошивки</span>
+                    <span id="f_name" style="font-size: 13px; color: #5f6368;">📁 Выбрать .bin файл прошивки</span>
                     <input type="file" id="f" accept=".bin" style="display:none" onchange="fileChosen()">
                 </label>
                 <div id="ota_prog_bar" class="prog-bg"><div id="ota_fill" class="prog-fill"></div></div>
-                <div id="ota_msg" style="font-size:12px; text-align:center; margin-bottom:10px;"></div>
-                <button id="ota_btn" class="btn-p" style="background:var(--d); width:100%" onclick="u()">ПРОШИТЬ</button>
-                <button class="btn-p" style="background:#5f6368; width:100%; margin-top:8px;" onclick="rs()">ПЕРЕЗАГРУЗКА</button>
+                <div id="ota_msg" style="font-size:12px; text-align:center; margin-bottom:10px; font-weight:bold; color:var(--d);"></div>
+                <button id="ota_btn" class="btn-p" style="background:var(--d); width:100%" onclick="u()">ПРОШИТЬ ПО ВОЗДУХУ</button>
+                <button class="btn-p" style="background:#5f6368; width:100%; margin-top:12px;" onclick="rs()">ПЕРЕЗАГРУЗКА</button>
             </div>
         </div>
     </div>
 
     <h1>Командный Центр</h1>
     
-    <div class="card">
+    <div class="card" style="border-top: 4px solid var(--p);">
         <span class="status-header">📊 Мониторинг</span>
         <div class="info-row"><span>Сеть</span> <b id="cur_ssid" style="color:var(--p)">--</b></div>
         <div class="info-row"><span>Сигнал</span> <div><span id="sig_b" class="sig-badge">--</span> <small id="sig_t" style="font-weight:bold; margin-left:5px;"></small></div></div>
         <div class="info-row"><span>Память</span> <div><span id="mem">--</span> КБ <div class="mem-bar"><div id="mem_f" class="mem-fill"></div></div></div></div>
-        <div class="info-row"><span>Аптайм</span> <span id="up" style="font-family:monospace; font-weight:bold;">00:00:00</span></div>
+        <div class="info-row" style="border:none"><span>Аптайм</span> <span id="up" style="font-family:monospace; font-weight:bold; color:#5f6368;">00:00:00</span></div>
     </div>
 
     <div class="card" style="border-top: 4px solid var(--s);">
         <span class="status-header">💡 Управление LED</span>
-        <p style="text-align:center; margin-bottom:20px;">Режим: <b id="led_t" style="color:var(--p);">--</b></p>
+        <p style="text-align:center; margin-bottom:20px; font-size: 14px;">Режим: <b id="led_t" style="color:var(--p);">--</b></p>
         <div style="display:flex; justify-content: center;">
-            <input type="number" id="led_v" style="width:160px; text-align:center; font-weight:bold; color:var(--p); margin:0;" onkeydown="handleArrows(event)" placeholder="0">
+            <input type="number" id="led_v" style="width:160px; text-align:center; font-weight:bold; color:var(--p); margin:0;" 
+                   onkeydown="handleArrows(event)" 
+                   oninput="setLedDebounced()"
+                   placeholder="0">
         </div>
+        <p style="text-align:center; font-size:11px; color:#999; margin-top:15px;">Стрелки ↑ ↓ — шаг 10 с округлением</p>
     </div>
 
     <script>
-        let navH = ['root-menu'], init = false;
+        let navH = ['root-menu'], init = false, ledTimer;
 
         function openModal() { document.getElementById('setModal').classList.add('show'); document.getElementById('overlay').classList.add('show'); }
         function closeModal() { document.getElementById('setModal').classList.remove('show'); document.getElementById('overlay').classList.remove('show'); }
         function navigate(id, title) { navH.push({id, title}); renderNav(); }
         function goBack() { if(navH.length > 1) { navH.pop(); renderNav(); } }
-        
         function renderNav() {
             let cur = navH[navH.length-1];
             document.querySelectorAll('.menu-page, .sub-content').forEach(p => p.classList.remove('active'));
@@ -154,28 +165,17 @@
                 document.getElementById('mem_f').style.width = Math.round((d.mem/520)*100) + "%";
                 document.getElementById('up').innerText = new Date(d.up * 1000).toISOString().substr(11, 8);
                 document.getElementById('cur_ssid').innerText = d.cur_s;
-                document.getElementById('led_t').innerText = d.del < 10 ? "Фонарик" : d.del + " ms";
+                
+                if (document.activeElement !== document.getElementById('led_v')) {
+                    document.getElementById('led_t').innerText = d.del < 10 ? "Фонарик" : d.del + " ms";
+                }
 
-                // Внутри функции getStatus
                 let s = d.sig, b = document.getElementById('sig_b'), t = document.getElementById('sig_t');
                 b.innerText = s + " dBm";
+                if(s > -60) { b.style.background = "#1e8e3e"; t.innerText = "EXCELLENT"; t.style.color="#1e8e3e"; }
+                else if(s > -80) { b.style.background = "#f9ab00"; t.innerText = "FAIR"; t.style.color="#f9ab00"; }
+                else { b.style.background = "#d93025"; t.innerText = "LOW"; t.style.color="#d93025"; }
 
-                if (s > -60) {
-                    b.style.background = "#1e8e3e"; // Зеленый (Google Success)
-                    t.innerText = "EXCELLENT"; 
-                    t.style.color = "#1e8e3e"; 
-                } 
-                else if (s > -80) {
-                    b.style.background = "#f9ab00"; // Желтый (Google Warning)
-                    t.innerText = "FAIR"; 
-                    t.style.color = "#f9ab00";
-                }
-                else {
-                    b.style.background = "#d93025"; // Красный (Google Danger)
-                    t.innerText = "LOW";
-                    t.style.color = "#d93025"; 
-                 }
-                 
                 if(!init) {
                     document.getElementById('m_ssid_in').value = d.s1; document.getElementById('m_pass_in').value = d.p1;
                     document.getElementById('r_ssid_in').value = d.s2; document.getElementById('r_pass_in').value = d.p2;
@@ -188,36 +188,48 @@
         }
         setInterval(getStatus, 3000); getStatus();
 
+        // УПРАВЛЕНИЕ LED С ОКРУГЛЕНИЕМ
         function handleArrows(e) {
             let i = document.getElementById('led_v');
+            let v = parseInt(i.value) || 0;
             if (e.keyCode === 13) { e.preventDefault(); setLed(); i.blur(); }
             if(e.keyCode === 38 || e.keyCode === 40) {
                 e.preventDefault();
-                let v = parseInt(i.value) || 0;
-                i.value = (e.keyCode === 38) ? v+10 : v-10;
+                v = (e.keyCode === 38) ? Math.floor((v + 10) / 10) * 10 : Math.ceil((v - 10) / 10) * 10;
+                i.value = v < 0 ? 0 : v;
                 setLed();
             }
         }
-        function setLed() { fetch('/set?val=' + document.getElementById('led_v').value); }
+        function setLedDebounced() { clearTimeout(ledTimer); ledTimer = setTimeout(setLed, 500); }
+        function setLed() { 
+            let val = document.getElementById('led_v').value;
+            if(val === "") return;
+            document.getElementById('led_t').innerText = val < 10 ? "Фонарик" : val + " ms";
+            fetch('/set?val=' + val); 
+        }
+        
         function saveWifi(id) {
             let s = document.getElementById(id==='main'?'m_ssid_in':'r_ssid_in').value;
             let p = document.getElementById(id==='main'?'m_pass_in':'r_pass_in').value;
             let a = document.getElementById(id==='main'?'act_main':'act_res').checked;
-            fetch(`/set_wifi?id=${id}&ssid=${s}&pass=${p}&act=${a}`).then(() => alert('Сохранено'));
+            fetch(`/set_wifi?id=${id}&ssid=${s}&pass=${p}&act=${a}`).then(() => {
+                if(confirm('Настройки сохранены! Перезагрузить устройство сейчас?')) rs();
+            });
         }
-        function setHost() { fetch('/set_host?val=' + document.getElementById('host_in').value); }
-        function rs() { if(confirm('Перезагрузить?')) fetch('/restart'); }
+        function setHost() { fetch('/set_host?val=' + document.getElementById('host_in').value).then(() => alert('OK')); }
+        function rs() { fetch('/restart').then(() => { document.body.innerHTML='<h1 style="margin-top:100px">Перезагрузка...</h1>'; setTimeout(()=>location.reload(), 10000); }); }
         
         function u() {
             let fi = document.getElementById('f').files; if(fi.length === 0) return alert('Файл?');
-            let x = new XMLHttpRequest();
+            let x = new XMLHttpRequest(), b = document.getElementById('ota_btn'), m = document.getElementById('ota_msg'), fill = document.getElementById('ota_fill'), bar = document.getElementById('ota_prog_bar');
             x.open('POST', '/update', true);
+            x.setRequestHeader('Content-Type', 'application/octet-stream');
+            b.disabled = true; b.style.opacity = 0.5; bar.style.display = 'block';
             x.upload.onprogress = (e) => { 
                 let p = Math.round((e.loaded/e.total)*100);
-                document.getElementById('ota_prog_bar').style.display='block';
-                document.getElementById('ota_fill').style.width = p + '%';
-                document.getElementById('ota_msg').innerText = 'Загрузка: ' + p + '%';
+                m.innerText = 'Загрузка: ' + p + '%'; fill.style.width = p + '%';
             };
+            x.onload = () => { m.innerText = 'УСПЕХ! РЕСТАРТ...'; setTimeout(() => rs(), 3000); };
             x.send(fi[0]);
         }
     </script>
