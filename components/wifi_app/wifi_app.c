@@ -6,18 +6,17 @@
 #include "wifi_app.h"
 #include "wifi_app_internal.h"
 
+extern char global_hostname[32]; 
+
 static void wifi_event_handler(void* arg, esp_event_base_t base, int32_t id, void* data) {
     if (base == WIFI_EVENT && id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
     } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
         esp_wifi_connect();
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
-        
-        // Запуск mDNS после получения IP
         mdns_init();
-        mdns_hostname_set("esp32");
+        mdns_hostname_set(global_hostname); // ПЕРЕМЕННАЯ ИЗ ПАМЯТИ
         mdns_instance_name_set("ESP32 Web Control");
-
         start_webserver();
     }
 }
