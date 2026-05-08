@@ -5,8 +5,8 @@
     <title>ESP32 Панель Управления</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f0f2f5; color: #333; padding: 20px; }
-        h1 { color: #1a73e8; margin-bottom: 30px; }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #f0f2f5; color: #333; padding: 20px; margin: 0; }
+        h1 { color: #1a73e8; margin-top: 50px; margin-bottom: 10px; }
         .card { background: white; padding: 20px; margin: 15px auto; border-radius: 12px; 
                 box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; text-align: left; }
         .info-row { display: flex; justify-content: space-between; margin: 8px 0; border-bottom: 1px solid #eee; padding-bottom: 5px; }
@@ -14,18 +14,83 @@
         input[type='number'] { width: 120px; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; text-align: center; }
         button { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 14px; }
         .btn-ok { background: #1a73e8; color: white; }
-        .btn-ota { background: #d93025; color: white; width: 100%; margin-top: 10px; }
-        .btn-restart { background: #f4b400; color: white; width: 100%; margin-top: 20px; }
+        .btn-ota { background: #d93025; color: white; width: 100%; margin-top: 15px; }
+        .btn-restart { background: #f4b400; color: white; width: 100%; margin-top: 25px; }
         #s { color: #d93025; font-weight: bold; margin-top: 10px; text-align: center; display: block; }
         .status-header { text-align: center; font-size: 1.2em; margin-bottom: 10px; display: block; font-weight: bold; color: #1a73e8; }
-        /* Прячем стандартные стрелки браузера, так как мы сделали свои умные */
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        /* НАСТРОЙКИ И ТАБЫ */
+        .settings-icon { position: fixed; top: 15px; left: 15px; font-size: 28px; cursor: pointer; z-index: 1000; background: #fff; border-radius: 50%; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 998; }
+        .modal { 
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: white; width: 90%; max-width: 380px; border-radius: 15px; z-index: 999; overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .modal.show, .overlay.show { display: block; }
+
+        .tab-menu { display: flex; background: #f8f9fa; border-bottom: 1px solid #ddd; }
+        .tab-btn { flex: 1; padding: 12px; border: none; background: none; cursor: pointer; color: #666; font-weight: bold; font-size: 0.9em; }
+        .tab-btn.active { color: #1a73e8; border-bottom: 3px solid #1a73e8; background: #fff; }
+        
+        .tab-content { padding: 20px; display: none; text-align: left; }
+        .tab-content.active { display: block; }
+
+        .wifi-item { margin-bottom: 15px; padding: 10px; background: #f0f4ff; border-radius: 8px; font-size: 0.9em; }
+        .wifi-item b { color: #1a73e8; display: block; margin-bottom: 5px; border-bottom: 1px solid #d0d7de; }
+        
+        .service-box { border: 1px dashed #ccc; padding: 15px; border-radius: 8px; background: #fafafa; }
     </style>
 </head>
 <body>
 
-    <h1>Панель управления ESP32</h1>
+    <div class="settings-icon" onclick="openModal()">⚙️</div>
+    <div class="overlay" id="overlay" onclick="closeModal()"></div>
 
+    <div id="setModal" class="modal">
+        <div class="tab-menu">
+            <button class="tab-btn active" onclick="openTab(event, 'tab-wifi')">Wi-Fi</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-service')">Сервис</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-info')">Инфо</button>
+        </div>
+
+        <!-- Вкладка Wi-Fi -->
+        <div id="tab-wifi" class="tab-content active">
+            <div class="wifi-item">
+                <b>ОСНОВНАЯ СЕТЬ</b>
+                <div>SSID: <span id="s1">--</span></div>
+                <div>PASS: <span id="p1">--</span></div>
+            </div>
+            <div class="wifi-item" style="background: #fff9e6; border-left: 4px solid #f4b400;">
+                <b style="color: #f4b400; border-bottom-color: #eee;">РЕЗЕРВНАЯ СЕТЬ</b>
+                <div>SSID: <span id="s2">--</span></div>
+                <div>PASS: <span id="p2">--</span></div>
+            </div>
+            <button class="btn-ok" style="width:100%" onclick="closeModal()">Закрыть</button>
+        </div>
+
+        <!-- Вкладка Сервис (ПЕРЕНЕСЕНО СЮДА) -->
+        <div id="tab-service" class="tab-content">
+            <div class="service-box">
+                <small style="color: #666;">Обновление прошивки (.bin):</small>
+                <input type="file" id="f" accept=".bin" style="margin-top: 10px; width: 100%;">
+                <button id="b" class="btn-ota" onclick="u()">Обновить ПО</button>
+                <span id="s"></span>
+            </div>
+            <button class="btn-restart" onclick="rs()">Перезагрузить ESP32</button>
+            <button class="btn-ok" style="width:100%; margin-top: 15px; background: #eee; color: #333;" onclick="closeModal()">Назад</button>
+        </div>
+
+        <!-- Вкладка Инфо -->
+        <div id="tab-info" class="tab-content">
+            <p style="color: #666; font-size: 0.9em;">Разработчик: ESP32 Admin Panel v1.0<br>Платформа: ESP-IDF 5.x</p>
+            <button class="btn-ok" style="width:100%" onclick="closeModal()">Закрыть</button>
+        </div>
+    </div>
+
+    <h1>Управление ESP32</h1>
+    
     <div class="card">
         <span class="status-header">Статус системы</span>
         <div class="info-row"><b>Память:</b> <span><span id="mem">--</span> / 520 КБ</span></div>
@@ -34,74 +99,67 @@
     </div>
 
     <div class="card">
-        <p style="text-align: center;">Режим: <b id="cur_del" style="color:#1a73e8;">--</b></p>
-        <form onsubmit="setDelay(); return false;" 
-              style="display: flex; gap: 10px; align-items: center; justify-content: center;">
-            <!-- Поле с обработкой клавиатуры -->
-            <input type="number" id="new_del" min="0" 
-                   oninput="setDelayDebounced()" 
-                   onkeydown="handleArrows(event)"
-                   placeholder="Задержка..."> 
-            <button type="submit" class="btn-ok">Ок</button>
+        <p style="text-align: center;">Режим мигания: <b id="cur_del" style="color:#1a73e8;">--</b></p>
+        <form onsubmit="setDelay(); return false;" style="display: flex; gap: 10px; align-items: center; justify-content: center;">
+            <input type="number" id="new_del" min="0" oninput="setDelayDebounced()" onkeydown="handleArrows(event)" placeholder="мс..."> 
+            <button type="submit" class="btn-ok">Установить</button>
         </form>
-        <p style="font-size: 0.8em; color: #888; text-align: center; margin-top: 10px;">
-            Подсказка: Стрелки на клавиатуре меняют шаг на 10
+        <p style="font-size: 0.75em; color: #999; text-align: center; margin-top: 10px;">
+            Используйте стрелки ↑ ↓ для шага 10 мс
         </p>
-    </div>
-
-    <div class="card" style="text-align: center;">
-        <h3>Обновление и Сервис</h3>
-        <input type="file" id="f" accept=".bin">
-        <button id="b" class="btn-ota" onclick="u()">Прошить по воздуху</button>
-        <span id="s"></span>
-        <button class="btn-restart" onclick="rs()">Перезагрузить устройство</button>
     </div>
 
     <script>
         let debounceTimer;
         let isInitialized = false;
 
-        // 1. Умная обработка стрелок (округление до 10)
+        function openModal() {
+            document.getElementById('setModal').classList.add('show');
+            document.getElementById('overlay').classList.add('show');
+        }
+        function closeModal() {
+            document.getElementById('setModal').classList.remove('show');
+            document.getElementById('overlay').classList.remove('show');
+        }
+
+        function openTab(evt, tabId) {
+            let contents = document.getElementsByClassName("tab-content");
+            for (let i = 0; i < contents.length; i++) contents[i].style.display = "none";
+            let buttons = document.getElementsByClassName("tab-btn");
+            for (let i = 0; i < buttons.length; i++) buttons[i].className = buttons[i].className.replace(" active", "");
+            document.getElementById(tabId).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+
         function handleArrows(e) {
             let input = document.getElementById('new_del');
             let val = parseInt(input.value) || 0;
-
-            if (e.keyCode === 38 || e.keyCode === 40) { // 38 - Up, 40 - Down
+            if (e.keyCode === 38 || e.keyCode === 40) {
                 e.preventDefault(); 
-
-                if (e.keyCode === 38) {
-                    // Из 231 сделает 240, из 239 сделает 240
-                    val = Math.floor((val + 10) / 10) * 10;
-                } else {
-                    // Из 231 сделает 230, из 239 сделает 230
-                    val = Math.ceil((val - 10) / 10) * 10;
-                }
-
+                val = (e.keyCode === 38) ? Math.floor((val + 10) / 10) * 10 : Math.ceil((val - 10) / 10) * 10;
                 if (val < 0) val = 0;
                 input.value = val;
                 setDelayDebounced();
             }
         }
 
-        // 2. Получение данных
         function getStatus() {
             fetch('/status').then(r => r.json()).then(d => {
                 document.getElementById('mem').innerText = d.mem;
                 document.getElementById('percent').innerText = Math.round(100 - ((d.mem * 100) / 520));
                 document.getElementById('up').innerText = d.up;
-                document.getElementById('cur_del').innerText = d.del < 10 ? "Постоянное свечение" : d.del + " мс";
-
-                if (!isInitialized) {
-                    document.getElementById('new_del').value = d.del;
-                    isInitialized = true;
-                }
-            }).catch(e => console.log("Offline"));
+                document.getElementById('cur_del').innerText = d.del < 10 ? "Фонарик (ВКЛ)" : d.del + " мс";
+                document.getElementById('s1').innerText = d.ssid;
+                document.getElementById('p1').innerText = d.pass;
+                document.getElementById('s2').innerText = d.r_ssid;
+                document.getElementById('p2').innerText = d.r_pass;
+                if (!isInitialized) { document.getElementById('new_del').value = d.del; isInitialized = true; }
+            }).catch(() => {});
         }
-
+        
         setInterval(getStatus, 2000);
         getStatus();
 
-        // 3. Отправка данных
         function setDelayDebounced() {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(setDelay, 300);
@@ -109,31 +167,29 @@
 
         function setDelay() {
             let v = document.getElementById('new_del').value;
-            if (v === "") return;
-            document.getElementById('cur_del').innerText = v < 10 ? "Постоянное свечение" : v + " мс";
-            fetch('/set?val=' + v);
+            if (v !== "") fetch('/set?val=' + v);
         }
 
         function rs() {
-            if(confirm('Перезагрузить ESP32?')) {
+            if(confirm('Перезагрузить устройство?')) {
                 fetch('/restart').then(() => {
-                    alert('Перезагрузка...');
-                    setTimeout(() => location.reload(), 8000);
+                    closeModal();
+                    document.body.innerHTML = '<h1>Перезагрузка...</h1><p>Страница обновится через 10 сек.</p>';
+                    setTimeout(() => location.reload(), 10000);
                 });
             }
         }
 
         function u() {
             var fi = document.getElementById('f').files;
-            if(fi.length === 0) return alert('Выберите файл!');
+            if(fi.length === 0) return alert('Выберите .bin файл!');
             var x = new XMLHttpRequest();
             var b = document.getElementById('b');
             var msg = document.getElementById('s');
             x.open('POST', '/update', true);
-            x.setRequestHeader('Content-Type', 'application/octet-stream');
             b.disabled = true;
             msg.innerHTML = 'Загрузка...';
-            x.upload.onprogress = (e) => { msg.innerHTML = 'Загрузка: ' + Math.round((e.loaded/e.total)*100) + '%'; };
+            x.upload.onprogress = (e) => { msg.innerHTML = 'Прогресс: ' + Math.round((e.loaded/e.total)*100) + '%'; };
             x.onload = () => { alert(x.responseText); location.reload(); };
             x.send(fi[0]);
         }

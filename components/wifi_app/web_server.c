@@ -3,8 +3,8 @@
 #include "esp_http_server.h"
 #include "esp_system.h"
 #include "esp_log.h"
-#include "nvs_flash.h" // Добавили для записи
-#include "nvs.h"       // Добавили для записи
+#include "nvs_flash.h"
+#include "nvs.h"
 #include "wifi_app_internal.h"
 
 static const char *TAG = "WEB_SERVER";
@@ -19,14 +19,21 @@ static esp_err_t index_get_handler(httpd_req_t *req) {
 }
 
 static esp_err_t status_get_handler(httpd_req_t *req) {
-    char json[128];
-    snprintf(json, sizeof(json), "{\"mem\":%lu,\"up\":%lu,\"del\":%d}", 
-             esp_get_free_heap_size()/1024, esp_log_timestamp()/1000, global_blink_delay);
+    char json[512]; // Увеличили буфер для хранения строк WiFi
+    snprintf(json, sizeof(json), 
+             "{\"mem\":%lu,\"up\":%lu,\"del\":%d,\"ssid\":\"%s\",\"pass\":\"%s\",\"r_ssid\":\"%s\",\"r_pass\":\"%s\"}", 
+             esp_get_free_heap_size()/1024, 
+             esp_log_timestamp()/1000, 
+             global_blink_delay,
+             CONFIG_WIFI_SSID, 
+             CONFIG_WIFI_PASS,
+             CONFIG_WIFI_RESERVE_SSID,
+             CONFIG_WIFI_RESERVE_PASS);
+             
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_sendstr(req, json);
 }
 
-// ОБНОВЛЕННЫЙ ОБРАБОТЧИК УСТАНОВКИ ЗАДЕРЖКИ С ЗАПИСЬЮ В ПАМЯТЬ
 static esp_err_t set_handler(httpd_req_t *req) {
     char buf[128];
     if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK) {
@@ -35,12 +42,10 @@ static esp_err_t set_handler(httpd_req_t *req) {
             int val = atoi(param);
             global_blink_delay = val;
 
-            // --- ЗАПИСЬ В NVS ---
             nvs_handle_t my_handle;
-            // Открываем хранилище "storage" в режиме записи
             if (nvs_open("storage", NVS_READWRITE, &my_handle) == ESP_OK) {
                 nvs_set_i32(my_handle, "delay", (int32_t)val);
-                nvs_commit(my_handle); // Сохраняем физически на Flash
+                nvs_commit(my_handle);
                 nvs_close(my_handle);
                 ESP_LOGI(TAG, "Новое значение %d сохранено в память Flash", val);
             }
